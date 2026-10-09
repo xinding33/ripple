@@ -22,7 +22,7 @@ To build it yourself instead, see [Build](#build).
 
 ### Updating
 
-Ripple updates itself: once a day it checks for a new [release](https://github.com/xinding33/ripple/releases), checks that it's signed by the same developer, replaces itself and restarts. To turn that off, uncheck **Install Updates Automatically** in its menu, and use **Check for Updates…** instead. Because Ripple updates itself, `brew upgrade` skips it unless you pass `--greedy` (which quits Ripple; open it again afterwards).
+Ripple updates itself: once a day it checks for a new [release](https://github.com/xinding33/ripple/releases), checks that it's signed by the same developer, replaces itself and restarts. To turn that off, uncheck **Install Updates Automatically** in its menu, and use **Check for Updates…** instead. `brew upgrade` also works: it quits Ripple, so open it again afterwards.
 
 Each Mac updates on its own schedule, so for up to a day your Macs may run different versions. They still wake each other.
 

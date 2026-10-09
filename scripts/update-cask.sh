@@ -1,6 +1,10 @@
 #!/bin/bash
 # Writes the ripple cask for a release into a homebrew-tap checkout and retires the source-build formula.
 # Usage: scripts/update-cask.sh TAP_DIR VERSION SHA256
+#
+# Ripple updates itself from the first release after 1.1.0, but the cask doesn't say `auto_updates true`
+# yet: brew upgrade would then skip Ripple, stranding 1.1.0 and earlier, which can't update themselves.
+# Add it in a later release.
 set -euo pipefail
 TAP="$1" VERSION="$2" SHA="$3"
 mkdir -p "$TAP/Casks"
@@ -14,8 +18,6 @@ cask "ripple" do
   desc "Menu bar app that wakes your Macs together for Universal Control"
   homepage "https://github.com/xinding33/ripple"
 
-  # Ripple installs its own updates (Install Updates Automatically, on by default).
-  auto_updates true
   depends_on macos: :ventura
 
   app "Ripple.app"
