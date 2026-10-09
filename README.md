@@ -12,13 +12,19 @@ brew install --cask xinding33/tap/ripple
 
 Or download `Ripple-x.y.z.zip` from the [latest release](https://github.com/xinding33/ripple/releases/latest), unzip it, and move `Ripple.app` to Applications.
 
-Do this on each Mac. Open Ripple and allow local network access when macOS asks. Then choose **Open at Login** from Ripple's menu bar icon. `brew upgrade` quits Ripple; open it again afterwards.
+Do this on each Mac. Open Ripple and allow local network access when macOS asks. Then choose **Open at Login** from Ripple's menu bar icon.
 
 To uninstall, turn off **Open at Login** and quit Ripple from its menu, then run `brew uninstall --cask ripple` (or delete `Ripple.app`).
 
 If you installed the earlier source-build formula, switch with `brew uninstall ripple && brew install --cask xinding33/tap/ripple`, then open Ripple. It quits the old build and keeps your pairing code, settings and Open at Login. macOS asks for local network access once more.
 
 To build it yourself instead, see [Build](#build).
+
+### Updating
+
+Ripple updates itself: once a day it checks for a new [release](https://github.com/xinding33/ripple/releases), checks that it's signed by the same developer, replaces itself and restarts. To turn that off, uncheck **Install Updates Automatically** in its menu, and use **Check for Updates…** instead. Because Ripple updates itself, `brew upgrade` skips it unless you pass `--greedy` (which quits Ripple; open it again afterwards).
+
+Each Mac updates on its own schedule, so for up to a day your Macs may run different versions. They still wake each other.
 
 ## Set up
 
@@ -36,6 +42,8 @@ Each Mac's menu lists the other Macs it found:
 - **Wake Others When This Mac Wakes:** when this Mac's display wakes, Ripple wakes the other Macs' displays. A Mac woken by Ripple doesn't wake the others again.
 - **Keep This Mac Awake:** prevents idle *system* sleep, so the Mac stays reachable. Its display still sleeps on its usual schedule. By default this applies only while on the power adapter.
 - **Wake All Macs:** ⌃⌥⌘W by default. You can change the shortcut in Settings.
+- **Check for Updates…:** see whether there's a newer release, and install it.
+- **Install Updates Automatically:** check GitHub once a day and install new releases without asking (on by default).
 
 ## How it works
 
@@ -53,7 +61,7 @@ bash scripts/build.sh
 open dist/Ripple.app
 ```
 
-The build creates an ad-hoc signed universal app and ZIP for your own Macs. Set `SIGN_IDENTITY` to sign with your own certificate.
+The build creates an ad-hoc signed universal app and ZIP for your own Macs. Set `SIGN_IDENTITY` to sign with your own certificate. Builds you make yourself can't install releases from the menu, since they aren't signed by the same developer; pull and build again to update.
 
 Logs: `log stream --predicate 'subsystem == "io.github.xinding33.ripple"'`. To try a pairing code without saving it, launch with `open dist/Ripple.app --args -pairingCode CODE`.
 

@@ -7,6 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// After being woken by a peer, don't treat our own display wake as a reason to wake everyone again.
     private static let remoteWakeEchoWindow: TimeInterval = 15
     private static let minAutoWakeInterval: TimeInterval = 5
+    private static let updateCheckInterval: TimeInterval = 24 * 60 * 60
+    private static let appVersion = Version(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+        ?? Version("0.0.0")!
+    /// Only release builds can install releases: an update must satisfy this copy's code signature.
+    private static let canInstallUpdates = Updater.isDeveloperIDSigned(Bundle.main.bundleURL)
 
     /// Loaded after migrateFromLegacyBuild() copies the legacy preferences.
     private lazy var settings = AppSettings.shared
@@ -21,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isMenuOpen = false
     private var ignoreScreenWakeUntil = Date.distantPast
     private var lastAutoWake = Date.distantPast
+    /// What the updater is doing, or nil when it's idle.
+    private var updateStatus: String? { didSet { refreshOpenMenu() } }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Opening Ripple while it already runs (say, from the login agent) would advertise this Mac twice.
@@ -58,6 +65,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         network.start()
         if settings.pairingCode.isEmpty { showSettings() }
+
+        checkForUpdatesAutomatically()
+        Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
+            self?.checkForUpdatesAutomatically()
+        }
     }
 
     /// Quits a running pre-1.1 build, which would advertise this Mac twice, then takes over its
@@ -152,6 +164,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(acItem)
         menu.addItem(.separator())
 
+        let checkItem = item(updateStatus ?? "Check for Updates…", #selector(checkForUpdates))
+        checkItem.action = updateStatus == nil ? #selector(checkForUpdates) : nil
+        menu.addItem(checkItem)
+        let autoUpdateItem = toggle("Install Updates Automatically", settings.autoUpdate && Self.canInstallUpdates, #selector(toggleAutoUpdate))
+        autoUpdateItem.action = Self.canInstallUpdates ? #selector(toggleAutoUpdate) : nil
+        menu.addItem(autoUpdateItem)
+        menu.addItem(.separator())
+
         menu.addItem(toggle("Open at Login", LoginItem.isEnabled, #selector(toggleOpenAtLogin)))
         menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("Quit Ripple", #selector(NSApplication.terminate(_:)), key: "q", target: NSApp))
@@ -195,6 +215,91 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.activate(ignoringOtherApps: true)
             NSAlert(error: error).runModal()
         }
+    }
+
+    // MARK: - Updates
+
+    @objc private func toggleAutoUpdate() {
+        settings.autoUpdate.toggle()
+        checkForUpdatesAutomatically()
+    }
+
+    /// When automatic updates are on, checks once a day and installs any newer release.
+    /// Failures are logged and retried on a later check.
+    private func checkForUpdatesAutomatically() {
+        guard settings.autoUpdate, Self.canInstallUpdates, updateStatus == nil,
+              Date().timeIntervalSince(settings.lastUpdateCheck) > Self.updateCheckInterval else { return }
+        updateStatus = "Checking for Updates…"
+        Task { @MainActor in
+            defer { updateStatus = nil }
+            do {
+                if let release = try await newerRelease() { try await install(release) }
+            } catch {
+                log.error("Automatic update failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    @objc private func checkForUpdates() {
+        updateStatus = "Checking for Updates…"
+        Task { @MainActor in
+            defer { updateStatus = nil }
+            do {
+                let release = try await newerRelease()
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert()
+                guard let release else {
+                    alert.messageText = "Ripple is up to date"
+                    alert.informativeText = "Version \(Self.appVersion) is the latest."
+                    alert.runModal()
+                    return
+                }
+                alert.messageText = "Ripple \(release.version) is available"
+                alert.informativeText = Self.canInstallUpdates
+                    ? "You have version \(Self.appVersion)."
+                    : "You have version \(Self.appVersion). This copy was built from source, so it can't update itself."
+                if Self.canInstallUpdates { alert.addButton(withTitle: "Install and Restart") }
+                alert.addButton(withTitle: "Release Notes")
+                alert.addButton(withTitle: "Later")
+                switch (alert.runModal(), Self.canInstallUpdates) {
+                case (.alertFirstButtonReturn, true): try await install(release)
+                case (.alertFirstButtonReturn, false), (.alertSecondButtonReturn, true): NSWorkspace.shared.open(release.page)
+                default: break
+                }
+            } catch {
+                log.error("Update failed: \(error.localizedDescription, privacy: .public)")
+                NSApp.activate(ignoringOtherApps: true)
+                let alert = NSAlert(error: error)
+                alert.messageText = "Couldn't update Ripple"
+                alert.informativeText = error.localizedDescription
+                alert.runModal()
+            }
+        }
+    }
+
+    /// The latest release, if it's newer than this copy.
+    @MainActor private func newerRelease() async throws -> Release? {
+        let release = try await Updater.latestRelease()
+        settings.lastUpdateCheck = Date()
+        return release.version > Self.appVersion ? release : nil
+    }
+
+    /// Replaces this copy with `release` (the download and checks run off the main thread), then relaunches.
+    @MainActor private func install(_ release: Release) async throws {
+        updateStatus = "Installing Ripple \(release.version)…"
+        log.info("Installing Ripple \(release.version.description, privacy: .public)")
+        try await Updater.install(release, replacing: Bundle.main.bundleURL)
+        relaunch()
+    }
+
+    /// Replaces this process with the copy now at the app's path. Keeping the process ID means the
+    /// new copy doesn't quit as a second instance, and the login agent still tracks it. Exec ends
+    /// the Bonjour advertisement and peer connections as quitting would.
+    private func relaunch() {
+        log.info("Relaunching")
+        var arguments = CommandLine.arguments.map { strdup($0) } + [nil]
+        execv(Bundle.main.bundlePath + "/Contents/MacOS/Ripple", &arguments)
+        log.error("Couldn't relaunch: \(String(cString: strerror(errno)), privacy: .public)")
     }
 
     // MARK: - Settings window
