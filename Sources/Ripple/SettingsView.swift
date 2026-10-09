@@ -2,12 +2,17 @@ import Carbon.HIToolbox
 import RippleCore
 import SwiftUI
 
+/// The macOS 27 SDK declares a `@State` macro alongside the property wrapper, and its plugin
+/// (SwiftUIMacros) is missing from the Command Line Tools that Homebrew builds with.
+/// Naming the property wrapper through an alias sidesteps the macro.
+private typealias ViewState<Value> = SwiftUI.State<Value>
+
 struct SettingsView: View {
     @ObservedObject var settings: AppSettings
     /// Called with true while the shortcut recorder is listening, so the existing hotkey can be paused.
     var onRecordingChange: (Bool) -> Void
 
-    @State private var draftCode = ""
+    @ViewState private var draftCode = ""
 
     private var normalizedDraft: String { PairingCode.normalize(draftCode) }
 
@@ -57,8 +62,8 @@ private struct ShortcutRecorder: View {
     @Binding var shortcut: Shortcut?
     var onRecordingChange: (Bool) -> Void
 
-    @State private var isRecording = false
-    @State private var monitor: Any?
+    @ViewState private var isRecording = false
+    @ViewState private var monitor: Any?
 
     var body: some View {
         HStack {
