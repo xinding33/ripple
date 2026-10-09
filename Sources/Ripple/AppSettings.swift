@@ -12,6 +12,8 @@ final class AppSettings: ObservableObject {
         static let shortcut = "wakeAllShortcut"
         static let installID = "installID"
         static let pairingCode = "pairingCode"
+        static let autoUpdate = "autoUpdate"
+        static let lastUpdateCheck = "lastUpdateCheck"
     }
 
     private let defaults = UserDefaults.standard
@@ -27,15 +29,23 @@ final class AppSettings: ObservableObject {
     /// Stored in preferences, not the Keychain: builds from source are ad-hoc signed, so the Keychain would
     /// prompt again after every rebuild, and the code only authorizes waking displays.
     @Published var pairingCode: String { didSet { defaults.set(pairingCode, forKey: Keys.pairingCode) } }
+    /// Check GitHub once a day and install newer releases without asking.
+    @Published var autoUpdate: Bool { didSet { defaults.set(autoUpdate, forKey: Keys.autoUpdate) } }
+
+    var lastUpdateCheck: Date {
+        get { defaults.object(forKey: Keys.lastUpdateCheck) as? Date ?? .distantPast }
+        set { defaults.set(newValue, forKey: Keys.lastUpdateCheck) }
+    }
 
     /// Identifies this install so a Mac ignores its own broadcasts.
     let installID: UUID
 
     private init() {
-        defaults.register(defaults: [Keys.autoWake: true, Keys.keepAwake: true, Keys.keepAwakeOnlyOnAC: true])
+        defaults.register(defaults: [Keys.autoWake: true, Keys.keepAwake: true, Keys.keepAwakeOnlyOnAC: true, Keys.autoUpdate: true])
         autoWake = defaults.bool(forKey: Keys.autoWake)
         keepAwake = defaults.bool(forKey: Keys.keepAwake)
         keepAwakeOnlyOnAC = defaults.bool(forKey: Keys.keepAwakeOnlyOnAC)
+        autoUpdate = defaults.bool(forKey: Keys.autoUpdate)
 
         if let data = defaults.data(forKey: Keys.shortcut) {
             shortcut = (try? JSONDecoder().decode(Shortcut?.self, from: data)) ?? nil

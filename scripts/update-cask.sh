@@ -14,6 +14,8 @@ cask "ripple" do
   desc "Menu bar app that wakes your Macs together for Universal Control"
   homepage "https://github.com/xinding33/ripple"
 
+  # Ripple installs its own updates (Install Updates Automatically, on by default).
+  auto_updates true
   depends_on macos: :ventura
 
   app "Ripple.app"
