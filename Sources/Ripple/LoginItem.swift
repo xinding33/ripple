@@ -1,37 +1,29 @@
 import Foundation
+import RippleCore
 
-/// Open at Login is a LaunchAgent in ~/Library/LaunchAgents rather than SMAppService, so it can point at
-/// Homebrew's version-independent opt/ path and keep working across `brew upgrade`.
+/// Open at Login is a LaunchAgent in ~/Library/LaunchAgents that opens this copy of the app.
 enum LoginItem {
-    private static let label = "com.xinding.Ripple"
-    private static let agentURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/LaunchAgents/\(label).plist")
+    private static let agent = LaunchAgent(label: bundleID)
 
-    static var isEnabled: Bool { FileManager.default.fileExists(atPath: agentURL.path) }
+    static var isEnabled: Bool { agent.exists }
 
     static func setEnabled(_ enabled: Bool) throws {
-        if enabled { try write() } else { try FileManager.default.removeItem(at: agentURL) }
+        if enabled { try agent.write(executable: executablePath) } else { try agent.remove() }
     }
 
     /// Rewrites the agent so it points at this copy of the app, e.g. after it was moved.
     static func refresh() {
-        if isEnabled { try? write() }
+        if isEnabled { try? agent.write(executable: executablePath) }
     }
 
-    private static var stableExecutablePath: String {
-        Bundle.main.bundlePath.replacingOccurrences(
-            of: #"/Cellar/ripple/[^/]+/"#, with: "/opt/ripple/", options: .regularExpression
-        ) + "/Contents/MacOS/Ripple"
+    /// Keeps Open at Login on for someone upgrading from a build that used the legacy label.
+    static func migrateLegacyAgent() {
+        do {
+            try agent.replace(LaunchAgent(label: legacyBundleID), executable: executablePath)
+        } catch {
+            log.error("Couldn't move the login agent: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
-    private static func write() throws {
-        let plist: [String: Any] = [
-            "Label": label,
-            "ProgramArguments": [stableExecutablePath],
-            "RunAtLoad": true,
-            "ProcessType": "Interactive",
-        ]
-        try FileManager.default.createDirectory(at: agentURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: agentURL)
-    }
+    private static var executablePath: String { Bundle.main.bundlePath + "/Contents/MacOS/Ripple" }
 }

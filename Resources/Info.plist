@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Ripple</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.xinding.Ripple</string>
+	<string>io.github.xinding33.ripple</string>
 	<key>CFBundleName</key>
 	<string>Ripple</string>
 	<key>CFBundlePackageType</key>
