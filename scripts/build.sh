@@ -3,7 +3,7 @@
 # Ad-hoc signed by default; set SIGN_IDENTITY to sign with a certificate instead.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="1.0.1"
+VERSION="1.0.2"
 # Homebrew builds inside its own sandbox, where SwiftPM's nested sandbox is not allowed.
 swift build -c release --disable-sandbox
 BIN_DIR="$(swift build -c release --disable-sandbox --show-bin-path)"
