@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         LoginItem.refresh()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        setStatusIcon("display.2")
+        setStatusIcon("dot.radiowaves.left.and.right")
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -231,6 +231,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func flashStatusIcon() {
         setStatusIcon("bolt.fill")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.setStatusIcon("display.2") }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.setStatusIcon("dot.radiowaves.left.and.right") }
     }
 }
