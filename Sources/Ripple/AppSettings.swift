@@ -24,8 +24,8 @@ final class AppSettings: ObservableObject {
     @Published var shortcut: Shortcut? {
         didSet { defaults.set(try? JSONEncoder().encode(shortcut), forKey: Keys.shortcut) }
     }
-    /// Stored in preferences, not the Keychain: Homebrew builds are ad-hoc signed, so the Keychain would
-    /// prompt again after every upgrade, and the code only authorizes waking displays.
+    /// Stored in preferences, not the Keychain: builds from source are ad-hoc signed, so the Keychain would
+    /// prompt again after every rebuild, and the code only authorizes waking displays.
     @Published var pairingCode: String { didSet { defaults.set(pairingCode, forKey: Keys.pairingCode) } }
 
     /// Identifies this install so a Mac ignores its own broadcasts.

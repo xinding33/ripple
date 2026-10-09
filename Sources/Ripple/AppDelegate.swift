@@ -8,7 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let remoteWakeEchoWindow: TimeInterval = 15
     private static let minAutoWakeInterval: TimeInterval = 5
 
-    private let settings = AppSettings.shared
+    /// Loaded after migrateFromLegacyBuild() copies the legacy preferences.
+    private lazy var settings = AppSettings.shared
     private let power = PowerManager()
     private let hotKeys = HotKeyManager()
     private lazy var network = PeerNetwork(installID: settings.installID, localName: localName)
@@ -23,11 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Opening Ripple while it already runs (say, from the login agent) would advertise this Mac twice.
-        if let bundleID = Bundle.main.bundleIdentifier,
-           NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
+        if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? bundleID).count > 1 {
             NSApp.terminate(nil)
             return
         }
+        migrateFromLegacyBuild()
         installMainMenu()
         LoginItem.refresh()
 
@@ -57,6 +58,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         network.start()
         if settings.pairingCode.isEmpty { showSettings() }
+    }
+
+    /// Quits a running pre-1.1 build, which would advertise this Mac twice, then takes over its
+    /// preferences and Open at Login.
+    private func migrateFromLegacyBuild() {
+        let legacy = { NSRunningApplication.runningApplications(withBundleIdentifier: legacyBundleID).filter { !$0.isTerminated } }
+        // A signal rather than terminate(), which sends an Apple Event. Ripple has nothing to save on quit.
+        legacy().forEach { kill($0.processIdentifier, SIGTERM) }
+        let deadline = Date().addingTimeInterval(5)
+        while !legacy().isEmpty && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.2)) }
+        LegacyMigration.migrateDefaults(from: legacyBundleID, to: Bundle.main.bundleIdentifier ?? bundleID)
+        LoginItem.migrateLegacyAgent()
     }
 
     // MARK: - Waking

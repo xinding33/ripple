@@ -3,7 +3,7 @@ import Network
 import os
 import RippleCore
 
-let log = Logger(subsystem: "com.xinding.Ripple", category: "app")
+let log = Logger(subsystem: bundleID, category: "app")
 
 /// Advertises this Mac over Bonjour, tracks other Ripple Macs, and exchanges signed UDP messages.
 /// All callbacks run on the main queue.
