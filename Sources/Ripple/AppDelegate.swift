@@ -31,7 +31,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Opening Ripple while it already runs (say, from the login agent) would advertise this Mac twice.
-        if NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? bundleID).count > 1 {
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? bundleID)
+            // Alive, not just listed: right after a restart, the old copy can still be listed.
+            .filter { $0.processIdentifier != getpid() && kill($0.processIdentifier, 0) == 0 }
+        if !others.isEmpty {
             NSApp.terminate(nil)
             return
         }
@@ -292,14 +295,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         relaunch()
     }
 
-    /// Replaces this process with the copy now at the app's path. Keeping the process ID means the
-    /// new copy doesn't quit as a second instance, and the login agent still tracks it. Exec ends
-    /// the Bonjour advertisement and peer connections as quitting would.
+    /// Restarts into the copy now at the app's path. The new copy starts once this one has gone, so it
+    /// doesn't quit as a second instance. Exiting ends the Bonjour advertisement and peer connections.
     private func relaunch() {
         log.info("Relaunching")
-        var arguments = CommandLine.arguments.map { strdup($0) } + [nil]
-        execv(Bundle.main.bundlePath + "/Contents/MacOS/Ripple", &arguments)
-        log.error("Couldn't relaunch: \(String(cString: strerror(errno)), privacy: .public)")
+        let reason = Relaunch.now(agentLabel: bundleID)
+        log.error("Couldn't relaunch: \(reason, privacy: .public)")
     }
 
     // MARK: - Settings window
